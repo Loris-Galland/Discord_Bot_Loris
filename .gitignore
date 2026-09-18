@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.log
+bin/
+
+data/*.json
+!data/.gitkeep
