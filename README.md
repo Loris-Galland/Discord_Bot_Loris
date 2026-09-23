@@ -72,7 +72,8 @@ Playlists (YouTube or Spotify) aren't supported yet — only single tracks and s
 4. An admin configures the announce channel: `/lol-config channel:#lol-stats`.
 5. Every 5 minutes, the bot checks each linked account for a new match and, if one finished, auto-posts a result embed to every server's configured channel the player is a member of. The very first check after linking only records a baseline — it won't announce old history.
 6. Daily (22:00), weekly (Monday 22:00) and monthly (1st of the month, 22:00 — all the bot process's local time) recap embeds are posted to each configured channel: gains/losses in ranked LP over that period, split by queue, with the most and least performant players. LP is tracked as one continuous score across tier/division boundaries, so promotions and demotions don't throw off the numbers. Players with no ranked games in the period are left out. Edit `RECAP_HOUR` in `lolDailyRecap.service.ts` / `lolWeeklyRecap.service.ts` / `lolMonthlyRecap.service.ts` to change the times.
-7. `/lol-unlink` removes your link.
+7. An admin sets up a live panel: `/lol-live-panel channel:#lol-live`. The bot pins a message there and edits it in place every 5 minutes with who's currently in a game (champion, queue, rank, time elapsed), using Riot's Spectator API — fully automatic after the one-time setup.
+8. `/lol-unlink` removes your link.
 
 Supported regions: EU West, EU Nordic & East, North America, Korea, Brazil (see `src/features/stats/lol.types.ts` to add more).
 

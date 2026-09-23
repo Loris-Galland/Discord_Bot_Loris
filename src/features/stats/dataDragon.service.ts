@@ -33,6 +33,40 @@ export async function getChampionIconUrl(championName: string): Promise<string> 
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${championName}.png`;
 }
 
+// Champion ids from match-v5/spectator-v5 need mapping to their Data Dragon string id
+// (e.g. 266 -> "Aatrox") to build icon URLs or show a readable name.
+let cachedChampionMap: Record<number, string> | null = null;
+
+async function getChampionMap(): Promise<Record<number, string>> {
+  if (cachedChampionMap) {
+    return cachedChampionMap;
+  }
+
+  const version = await getLatestVersion();
+  const response = await fetch(
+    `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`,
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Could not fetch Data Dragon champions: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const data = (await response.json()) as { data: Record<string, { key: string; id: string }> };
+  const map: Record<number, string> = {};
+  for (const champion of Object.values(data.data)) {
+    map[Number(champion.key)] = champion.id;
+  }
+
+  cachedChampionMap = map;
+  return map;
+}
+
+export async function getChampionNameById(championId: number): Promise<string | null> {
+  const map = await getChampionMap();
+  return map[championId] ?? null;
+}
+
 export async function getItemIconUrl(itemId: number): Promise<string | null> {
   if (!itemId) {
     return null;

@@ -1,6 +1,12 @@
 import { config } from "../../shared/config/env";
 import { createLogger } from "../../shared/logger/logger";
-import type { LeagueEntryDto, MatchDto, RegionalRouting, RiotAccountDto } from "./lol.types";
+import type {
+  CurrentGameInfoDto,
+  LeagueEntryDto,
+  MatchDto,
+  RegionalRouting,
+  RiotAccountDto,
+} from "./lol.types";
 
 const logger = createLogger("riot-api");
 
@@ -59,4 +65,26 @@ export async function getRecentMatchIds(
 export async function getMatch(regional: RegionalRouting, matchId: string): Promise<MatchDto> {
   const url = `https://${regional}.api.riotgames.com/lol/match/v5/matches/${matchId}`;
   return riotFetch<MatchDto>(url, "Match not found.");
+}
+
+// A 404 here just means the player isn't in a game — the normal, expected case most of
+// the time — so it returns null instead of going through riotFetch's throw-on-404 path.
+export async function getActiveGame(
+  platform: string,
+  puuid: string,
+): Promise<CurrentGameInfoDto | null> {
+  const url = `https://${platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`;
+  const response = await fetch(url, { headers: { "X-Riot-Token": requireApiKey() } });
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (response.status === 429) {
+    throw new RiotApiError("Riot API rate limit reached, try again in a moment.");
+  }
+  if (!response.ok) {
+    throw new RiotApiError(`Riot API error: ${response.status} ${response.statusText}`);
+  }
+
+  return (await response.json()) as CurrentGameInfoDto;
 }

@@ -9,6 +9,7 @@ import { musicStopCommand } from "./music/musicStop.command";
 import { lolConfigCommand } from "./stats/lolConfig.command";
 import { lolLeaderboardCommand } from "./stats/lolLeaderboard.command";
 import { lolLinkCommand } from "./stats/lolLink.command";
+import { lolLivePanelCommand } from "./stats/lolLivePanel.command";
 import { lolStatsCommand } from "./stats/lolStats.command";
 import { lolUnlinkCommand } from "./stats/lolUnlink.command";
 
@@ -25,4 +26,5 @@ export const commands: Command[] = [
   lolStatsCommand,
   lolConfigCommand,
   lolLeaderboardCommand,
+  lolLivePanelCommand,
 ];

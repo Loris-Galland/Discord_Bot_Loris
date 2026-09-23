@@ -4,6 +4,7 @@ import { guildConfigRepository } from "../../shared/storage/guildConfigRepositor
 import { maybeRunDailyRecap } from "./lolDailyRecap.service";
 import { buildMatchSummaryEmbed } from "./lolEmbed";
 import { lolLinkRepository, type PeriodStats } from "./lolLinkRepository";
+import { updateLivePanels } from "./lolLivePanel.service";
 import { computeRankPoints, RANKED_QUEUE_TYPE_BY_ID } from "./lolRank";
 import type { LeagueEntryDto } from "./lol.types";
 import { maybeRunMonthlyRecap } from "./lolMonthlyRecap.service";
@@ -150,6 +151,7 @@ async function pollAll(client: Client): Promise<void> {
 export function startLolMatchTracker(client: Client): void {
   setInterval(() => {
     pollAll(client)
+      .then(() => updateLivePanels(client))
       .then(() => maybeRunDailyRecap(client))
       .then(() => maybeRunWeeklyRecap(client))
       .then(() => maybeRunMonthlyRecap(client))

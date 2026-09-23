@@ -8,6 +8,8 @@ const storageFilePath = path.join(process.cwd(), "data", "guild-config.json");
 interface GuildConfig {
   livechatChannelId?: string;
   statsChannelId?: string;
+  livePanelChannelId?: string;
+  livePanelMessageId?: string;
 }
 
 type GuildConfigStore = Record<string, GuildConfig>;
@@ -53,6 +55,26 @@ export const guildConfigRepository = {
     store = {
       ...store,
       [guildId]: { ...store[guildId], statsChannelId: channelId },
+    };
+    writeStore(store);
+  },
+
+  getLivePanel(guildId: string): { channelId: string; messageId: string } | undefined {
+    const config = store[guildId];
+    if (!config?.livePanelChannelId || !config.livePanelMessageId) {
+      return undefined;
+    }
+    return { channelId: config.livePanelChannelId, messageId: config.livePanelMessageId };
+  },
+
+  setLivePanel(guildId: string, channelId: string, messageId: string): void {
+    store = {
+      ...store,
+      [guildId]: {
+        ...store[guildId],
+        livePanelChannelId: channelId,
+        livePanelMessageId: messageId,
+      },
     };
     writeStore(store);
   },

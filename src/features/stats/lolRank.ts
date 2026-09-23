@@ -43,6 +43,19 @@ export const QUEUE_LABELS: Record<string, string> = {
   RANKED_FLEX_SR: "Flex",
 };
 
+// Riot's numeric queue ids (from match-v5/spectator-v5), for queues worth labeling in the
+// live panel. Anything else falls back to a generic label rather than growing this list
+// to cover every rotating/event queue id.
+export const QUEUE_ID_LABELS: Record<number, string> = {
+  420: "Solo/Duo",
+  440: "Flex",
+  400: "Normale (Draft)",
+  430: "Normale (Aveugle)",
+  450: "ARAM",
+  900: "URF",
+  1700: "Arena",
+};
+
 // Apex tiers (Master+) have no meaningful division, so the API's "rank" field for them
 // is a meaningless placeholder — drop it rather than show something like "Challenger IV".
 export function formatRank(entry: LeagueEntryDto): string {

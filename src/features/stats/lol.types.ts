@@ -83,3 +83,16 @@ export interface MatchDto {
     participants: MatchParticipantDto[];
   };
 }
+
+export interface CurrentGameParticipantDto {
+  puuid: string;
+  championId: number;
+  teamId: number;
+}
+
+export interface CurrentGameInfoDto {
+  gameId: number;
+  gameLength: number;
+  gameQueueConfigId: number;
+  participants: CurrentGameParticipantDto[];
+}
