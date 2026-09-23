@@ -1,6 +1,7 @@
-import { Colors, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { AttachmentBuilder, Colors, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import type { Command } from "../../shared/discord/command.types";
 import { createLogger } from "../../shared/logger/logger";
+import { buildHistoryImage, type HistoryRow } from "./lolHistoryImage";
 import { lolLinkRepository } from "./lolLinkRepository";
 import { QUEUE_ID_LABELS } from "./lolRank";
 import { getMatch, getRecentMatchIds, RiotApiError } from "./riotApi.service";
@@ -8,6 +9,7 @@ import { getMatch, getRecentMatchIds, RiotApiError } from "./riotApi.service";
 const logger = createLogger("lol-history-command");
 const DEFAULT_COUNT = 10;
 const MAX_COUNT = 15;
+const HISTORY_ATTACHMENT_NAME = "history.png";
 
 function formatRelativeTime(timestampMs: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestampMs) / 60000));
@@ -31,9 +33,7 @@ export const lolHistoryCommand: Command = {
     .addIntegerOption((option) =>
       option
         .setName("count")
-        .setDescription(
-          `How many recent matches to show (default ${DEFAULT_COUNT}, max ${MAX_COUNT}).`,
-        )
+        .setDescription(`How many recent matches to show (default ${DEFAULT_COUNT}, max ${MAX_COUNT}).`)
         .setMinValue(1)
         .setMaxValue(MAX_COUNT),
     ),
@@ -61,7 +61,7 @@ export const lolHistoryCommand: Command = {
         return;
       }
 
-      const lines: string[] = [];
+      const rows: HistoryRow[] = [];
       let wins = 0;
 
       for (const matchId of matchIds) {
@@ -75,30 +75,31 @@ export const lolHistoryCommand: Command = {
           wins += 1;
         }
 
-        const queueLabel = QUEUE_ID_LABELS[match.info.queueId] ?? "Partie";
-        const resultEmoji = participant.win ? "✅" : "❌";
-        const endTimestamp =
-          match.info.gameEndTimestamp ?? match.info.gameCreation + match.info.gameDuration * 1000;
-
-        lines.push(
-          `${resultEmoji} **${participant.championName}** ${participant.kills}/${participant.deaths}/${participant.assists} — ${queueLabel} — ${formatRelativeTime(endTimestamp)}`,
-        );
+        const endTimestamp = match.info.gameEndTimestamp ?? match.info.gameCreation + match.info.gameDuration * 1000;
+        rows.push({
+          participant,
+          queueLabel: QUEUE_ID_LABELS[match.info.queueId] ?? "Partie",
+          relativeTime: formatRelativeTime(endTimestamp),
+        });
       }
 
-      if (lines.length === 0) {
+      if (rows.length === 0) {
         await interaction.editReply("Could not read this player's recent matches.");
         return;
       }
 
-      const losses = lines.length - wins;
+      const losses = rows.length - wins;
+      const imageBuffer = await buildHistoryImage(rows);
+      const attachment = new AttachmentBuilder(imageBuffer, { name: HISTORY_ATTACHMENT_NAME });
+
       const embed = new EmbedBuilder()
         .setColor(Colors.Blurple)
         .setAuthor({ name: target.displayName })
         .setTitle(`Historique récent — ${wins}V / ${losses}D`)
-        .setDescription(lines.join("\n"))
+        .setImage(`attachment://${HISTORY_ATTACHMENT_NAME}`)
         .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed], files: [attachment] });
     } catch (error) {
       if (error instanceof RiotApiError) {
         await interaction.editReply(error.message);
