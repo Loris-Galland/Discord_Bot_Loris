@@ -47,8 +47,13 @@ export const lolStatsCommand: Command = {
       // Ranked standing is supplementary: don't fail the whole command if it can't be fetched.
       const rankedEntries = await getRankedEntries(link.platform, link.puuid).catch(() => []);
 
-      const embed = await buildMatchSummaryEmbed(target.displayName, match, participant, rankedEntries);
-      await interaction.editReply({ embeds: [embed] });
+      const { embed, files } = await buildMatchSummaryEmbed(
+        target.displayName,
+        match,
+        participant,
+        rankedEntries,
+      );
+      await interaction.editReply({ embeds: [embed], files });
     } catch (error) {
       if (error instanceof RiotApiError) {
         await interaction.editReply(error.message);

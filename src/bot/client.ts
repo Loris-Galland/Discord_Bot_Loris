@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import { commands } from "../features";
 import { startLolMatchTracker } from "../features/stats/lolMatchTracker.service";
+import { initRankEmojis } from "../features/stats/lolRankEmoji";
 import { config } from "../shared/config/env";
 import { createLogger } from "../shared/logger/logger";
 import { registerInteractionRouter } from "./interactionRouter";
@@ -18,6 +19,7 @@ export function createBotClient(): Client {
   client.once("ready", (readyClient) => {
     logger.info(`Logged in as ${readyClient.user.tag}.`);
     startLolMatchTracker(readyClient);
+    initRankEmojis(readyClient).catch((error) => logger.error("Failed to initialize rank emojis.", error));
   });
 
   return client;

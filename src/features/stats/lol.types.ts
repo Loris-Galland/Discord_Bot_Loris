@@ -35,6 +35,16 @@ export interface LeagueEntryDto {
   losses: number;
 }
 
+export interface RunePerkSelectionDto {
+  perk: number;
+}
+
+export interface RunePerkStyleDto {
+  description: string; // "primaryStyle" | "subStyle"
+  style: number;
+  selections: RunePerkSelectionDto[];
+}
+
 export interface MatchParticipantDto {
   puuid: string;
   championName: string;
@@ -44,6 +54,22 @@ export interface MatchParticipantDto {
   assists: number;
   totalMinionsKilled: number;
   neutralMinionsKilled: number;
+  champLevel: number;
+  summoner1Id: number;
+  summoner2Id: number;
+  item0: number;
+  item1: number;
+  item2: number;
+  item3: number;
+  item4: number;
+  item5: number;
+  item6: number;
+  perks: {
+    styles: RunePerkStyleDto[];
+  };
+  challenges?: {
+    killParticipation?: number;
+  };
 }
 
 export interface MatchDto {

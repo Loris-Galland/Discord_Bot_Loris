@@ -7,6 +7,7 @@ import { musicQueueCommand } from "./music/musicQueue.command";
 import { musicSkipCommand } from "./music/musicSkip.command";
 import { musicStopCommand } from "./music/musicStop.command";
 import { lolConfigCommand } from "./stats/lolConfig.command";
+import { lolLeaderboardCommand } from "./stats/lolLeaderboard.command";
 import { lolLinkCommand } from "./stats/lolLink.command";
 import { lolStatsCommand } from "./stats/lolStats.command";
 import { lolUnlinkCommand } from "./stats/lolUnlink.command";
@@ -23,4 +24,5 @@ export const commands: Command[] = [
   lolUnlinkCommand,
   lolStatsCommand,
   lolConfigCommand,
+  lolLeaderboardCommand,
 ];

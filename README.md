@@ -67,12 +67,16 @@ Playlists (YouTube or Spotify) aren't supported yet — only single tracks and s
 ## Using the LoL stats feature
 
 1. Each player links their Riot account: `/lol-link riot-id:Name#Tag region:<your region>`.
-2. `/lol-stats [player:@someone]` looks up the most recent match for a linked account on demand (defaults to yourself).
-3. An admin configures the announce channel: `/lol-config channel:#lol-stats`.
-4. Every 5 minutes, the bot checks each linked account for a new match and, if one finished, auto-posts a result embed (champion, KDA, CS, duration, and a pre-made message based on the score) to every server's configured channel the player is a member of. The very first check after linking only records a baseline — it won't announce old history.
-5. `/lol-unlink` removes your link.
+2. `/lol-stats [player:@someone]` looks up the most recent match for a linked account on demand (defaults to yourself) — champion, KDA, CS, KP%, level, duration, ranked standing (with a rank emblem next to it), and a summoner spells/runes/items loadout image.
+3. `/lol-leaderboard` ranks every linked account in the server by their best queue (Solo/Duo or Flex), medals for the top 3.
+4. An admin configures the announce channel: `/lol-config channel:#lol-stats`.
+5. Every 5 minutes, the bot checks each linked account for a new match and, if one finished, auto-posts a result embed to every server's configured channel the player is a member of. The very first check after linking only records a baseline — it won't announce old history.
+6. Daily (22:00), weekly (Monday 22:00) and monthly (1st of the month, 22:00 — all the bot process's local time) recap embeds are posted to each configured channel: gains/losses in ranked LP over that period, split by queue, with the most and least performant players. LP is tracked as one continuous score across tier/division boundaries, so promotions and demotions don't throw off the numbers. Players with no ranked games in the period are left out. Edit `RECAP_HOUR` in `lolDailyRecap.service.ts` / `lolWeeklyRecap.service.ts` / `lolMonthlyRecap.service.ts` to change the times.
+7. `/lol-unlink` removes your link.
 
 Supported regions: EU West, EU Nordic & East, North America, Korea, Brazil (see `src/features/stats/lol.types.ts` to add more).
+
+Champion/item/summoner spell/rune icons come from Data Dragon; rank emblems come from Community Dragon and are uploaded once as Discord "application emojis" (bot-wide, shown inline next to rank text) — see `src/features/stats/lolRankEmoji.ts`. The match summary embed's items/spells/runes loadout is rendered as a composite image via `@napi-rs/canvas` (`lolLoadoutImage.ts`), since a Discord embed can only carry one image.
 
 ## Moving from your personal server to your friends' server
 

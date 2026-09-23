@@ -6,6 +6,20 @@ import type { RegionalRouting } from "./lol.types";
 const logger = createLogger("lol-link");
 const storageFilePath = path.join(process.cwd(), "data", "lol-links.json");
 
+export interface PeriodStats {
+  lpDelta: number;
+  games: number;
+}
+
+export type RecapPeriod = "daily" | "weekly" | "monthly";
+
+export interface QueueProgress {
+  lastPoints: number;
+  daily: PeriodStats;
+  weekly: PeriodStats;
+  monthly: PeriodStats;
+}
+
 export interface LolLink {
   puuid: string;
   gameName: string;
@@ -13,6 +27,7 @@ export interface LolLink {
   platform: string;
   regional: RegionalRouting;
   lastSeenMatchId?: string;
+  queueProgress?: Record<string, QueueProgress>;
 }
 
 type LolLinkStore = Record<string, LolLink>;
@@ -63,6 +78,42 @@ export const lolLinkRepository = {
       return;
     }
     store = { ...store, [discordUserId]: { ...existing, lastSeenMatchId: matchId } };
+    writeStore(store);
+  },
+
+  setQueueProgress(discordUserId: string, queueType: string, progress: QueueProgress): void {
+    const existing = store[discordUserId];
+    if (!existing) {
+      return;
+    }
+    store = {
+      ...store,
+      [discordUserId]: {
+        ...existing,
+        queueProgress: { ...existing.queueProgress, [queueType]: progress },
+      },
+    };
+    writeStore(store);
+  },
+
+  // Called once a recap for the given period has been posted: keeps each queue's last
+  // known rank (needed to compute the next delta) but zeroes that period's accumulated
+  // totals. The other periods' accumulators are untouched (e.g. a nightly reset doesn't
+  // touch the weekly/monthly totals).
+  resetPeriodProgress(period: RecapPeriod): void {
+    const next: LolLinkStore = {};
+    for (const [discordUserId, link] of Object.entries(store)) {
+      if (!link.queueProgress) {
+        next[discordUserId] = link;
+        continue;
+      }
+      const queueProgress: Record<string, QueueProgress> = {};
+      for (const [queueType, progress] of Object.entries(link.queueProgress)) {
+        queueProgress[queueType] = { ...progress, [period]: { lpDelta: 0, games: 0 } };
+      }
+      next[discordUserId] = { ...link, queueProgress };
+    }
+    store = next;
     writeStore(store);
   },
 

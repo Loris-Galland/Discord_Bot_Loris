@@ -1,12 +1,63 @@
 import { ChannelType, type Client } from "discord.js";
 import { createLogger } from "../../shared/logger/logger";
 import { guildConfigRepository } from "../../shared/storage/guildConfigRepository";
+import { maybeRunDailyRecap } from "./lolDailyRecap.service";
 import { buildMatchSummaryEmbed } from "./lolEmbed";
-import { lolLinkRepository } from "./lolLinkRepository";
+import { lolLinkRepository, type PeriodStats } from "./lolLinkRepository";
+import { computeRankPoints, RANKED_QUEUE_TYPE_BY_ID } from "./lolRank";
+import type { LeagueEntryDto } from "./lol.types";
+import { maybeRunMonthlyRecap } from "./lolMonthlyRecap.service";
+import { maybeRunWeeklyRecap } from "./lolWeeklyRecap.service";
 import { getMatch, getRankedEntries, getRecentMatchIds, RiotApiError } from "./riotApi.service";
 
 const logger = createLogger("lol-match-tracker");
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
+
+function addDelta(stats: PeriodStats, delta: number): PeriodStats {
+  return { lpDelta: stats.lpDelta + delta, games: stats.games + 1 };
+}
+
+// Records the LP change for the ranked queue this match was played in, so the daily/
+// weekly/monthly recaps can report gains/losses. The first time we see a queue, there's
+// no prior point total to diff against, so we just record the baseline instead of
+// counting a delta.
+function trackRankChange(
+  discordUserId: string,
+  queueType: string,
+  rankedEntries: LeagueEntryDto[],
+): void {
+  const entry = rankedEntries.find((candidate) => candidate.queueType === queueType);
+  if (!entry) {
+    return;
+  }
+
+  const link = lolLinkRepository.get(discordUserId);
+  if (!link) {
+    return;
+  }
+
+  const points = computeRankPoints(entry);
+  const previous = link.queueProgress?.[queueType];
+  const zero: PeriodStats = { lpDelta: 0, games: 0 };
+
+  if (!previous) {
+    lolLinkRepository.setQueueProgress(discordUserId, queueType, {
+      lastPoints: points,
+      daily: zero,
+      weekly: zero,
+      monthly: zero,
+    });
+    return;
+  }
+
+  const delta = points - previous.lastPoints;
+  lolLinkRepository.setQueueProgress(discordUserId, queueType, {
+    lastPoints: points,
+    daily: addDelta(previous.daily, delta),
+    weekly: addDelta(previous.weekly, delta),
+    monthly: addDelta(previous.monthly, delta),
+  });
+}
 
 async function announceMatch(
   client: Client,
@@ -26,7 +77,18 @@ async function announceMatch(
   }
 
   const rankedEntries = await getRankedEntries(link.platform, link.puuid).catch(() => []);
-  const embed = await buildMatchSummaryEmbed(displayName, match, participant, rankedEntries);
+
+  const queueType = RANKED_QUEUE_TYPE_BY_ID[match.info.queueId];
+  if (queueType) {
+    trackRankChange(discordUserId, queueType, rankedEntries);
+  }
+
+  const { embed, files } = await buildMatchSummaryEmbed(
+    displayName,
+    match,
+    participant,
+    rankedEntries,
+  );
 
   for (const guild of client.guilds.cache.values()) {
     const channelId = guildConfigRepository.getStatsChannelId(guild.id);
@@ -44,7 +106,7 @@ async function announceMatch(
       continue;
     }
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({ embeds: [embed], files });
   }
 }
 
@@ -87,7 +149,11 @@ async function pollAll(client: Client): Promise<void> {
 
 export function startLolMatchTracker(client: Client): void {
   setInterval(() => {
-    pollAll(client).catch((error) => logger.error("LoL match tracker poll failed.", error));
+    pollAll(client)
+      .then(() => maybeRunDailyRecap(client))
+      .then(() => maybeRunWeeklyRecap(client))
+      .then(() => maybeRunMonthlyRecap(client))
+      .catch((error) => logger.error("LoL match tracker poll failed.", error));
   }, POLL_INTERVAL_MS);
   logger.info(`LoL match tracker started (polling every ${POLL_INTERVAL_MS / 60000} min).`);
 }

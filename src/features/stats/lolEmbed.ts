@@ -1,16 +1,17 @@
-import { Colors, EmbedBuilder } from "discord.js";
+import { AttachmentBuilder, Colors, EmbedBuilder } from "discord.js";
+import { createLogger } from "../../shared/logger/logger";
 import { getChampionIconUrl } from "./dataDragon.service";
 import type { LeagueEntryDto, MatchDto, MatchParticipantDto } from "./lol.types";
+import { formatRank } from "./lolRank";
+import { buildLoadoutImage } from "./lolLoadoutImage";
 import { buildScoreMessage } from "./scoreMessage";
 
-const apexTiers = new Set(["MASTER", "GRANDMASTER", "CHALLENGER"]);
+const logger = createLogger("lol-embed");
+const LOADOUT_ATTACHMENT_NAME = "loadout.png";
 
-// Apex tiers (Master+) have no meaningful division, so the API's "rank" field for them
-// is a meaningless placeholder — drop it rather than show something like "Challenger IV".
-function formatRank(entry: LeagueEntryDto): string {
-  const tier = entry.tier.charAt(0) + entry.tier.slice(1).toLowerCase();
-  const division = apexTiers.has(entry.tier) ? "" : ` ${entry.rank}`;
-  return `${tier}${division} · ${entry.leaguePoints} LP (${entry.wins}W ${entry.losses}L)`;
+export interface MatchSummaryMessage {
+  embed: EmbedBuilder;
+  files: AttachmentBuilder[];
 }
 
 export async function buildMatchSummaryEmbed(
@@ -18,9 +19,10 @@ export async function buildMatchSummaryEmbed(
   match: MatchDto,
   participant: MatchParticipantDto,
   rankedEntries: LeagueEntryDto[],
-): Promise<EmbedBuilder> {
+): Promise<MatchSummaryMessage> {
   const cs = participant.totalMinionsKilled + participant.neutralMinionsKilled;
   const durationMinutes = Math.round(match.info.gameDuration / 60);
+  const killParticipation = participant.challenges?.killParticipation;
   const message = buildScoreMessage(
     {
       win: participant.win,
@@ -37,7 +39,11 @@ export async function buildMatchSummaryEmbed(
     .setTitle(participant.win ? "Victoire" : "Défaite")
     .setDescription(message)
     .addFields(
-      { name: "Champion", value: participant.championName, inline: true },
+      {
+        name: "Champion",
+        value: `${participant.championName} (niv. ${participant.champLevel})`,
+        inline: true,
+      },
       {
         name: "KDA",
         value: `${participant.kills}/${participant.deaths}/${participant.assists}`,
@@ -47,6 +53,10 @@ export async function buildMatchSummaryEmbed(
       { name: "Durée", value: `${durationMinutes} min`, inline: true },
     )
     .setTimestamp();
+
+  if (killParticipation !== undefined) {
+    embed.addFields({ name: "KP", value: `${Math.round(killParticipation * 100)}%`, inline: true });
+  }
 
   const soloQueueEntry = rankedEntries.find((entry) => entry.queueType === "RANKED_SOLO_5x5");
   if (soloQueueEntry) {
@@ -59,5 +69,15 @@ export async function buildMatchSummaryEmbed(
     // Data Dragon unreachable: ship the embed without the icon rather than fail the whole thing.
   }
 
-  return embed;
+  const files: AttachmentBuilder[] = [];
+  try {
+    const loadoutBuffer = await buildLoadoutImage(participant);
+    const attachment = new AttachmentBuilder(loadoutBuffer, { name: LOADOUT_ATTACHMENT_NAME });
+    embed.setImage(`attachment://${LOADOUT_ATTACHMENT_NAME}`);
+    files.push(attachment);
+  } catch (error) {
+    logger.warn("Failed to build loadout image, shipping the embed without it.", error);
+  }
+
+  return { embed, files };
 }
