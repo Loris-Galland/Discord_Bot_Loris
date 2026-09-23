@@ -6,12 +6,17 @@ import { musicPlayCommand } from "./music/musicPlay.command";
 import { musicQueueCommand } from "./music/musicQueue.command";
 import { musicSkipCommand } from "./music/musicSkip.command";
 import { musicStopCommand } from "./music/musicStop.command";
+import { lolBetCommand } from "./stats/lolBet.command";
+import { lolBettingConfigCommand } from "./stats/lolBettingConfig.command";
 import { lolConfigCommand } from "./stats/lolConfig.command";
+import { lolHistoryCommand } from "./stats/lolHistory.command";
 import { lolLeaderboardCommand } from "./stats/lolLeaderboard.command";
 import { lolLinkCommand } from "./stats/lolLink.command";
 import { lolLivePanelCommand } from "./stats/lolLivePanel.command";
+import { lolScoreboardCommand } from "./stats/lolScoreboard.command";
 import { lolStatsCommand } from "./stats/lolStats.command";
 import { lolUnlinkCommand } from "./stats/lolUnlink.command";
+import { lolWalletCommand } from "./stats/lolWallet.command";
 
 export const commands: Command[] = [
   helpCommand,
@@ -27,4 +32,9 @@ export const commands: Command[] = [
   lolConfigCommand,
   lolLeaderboardCommand,
   lolLivePanelCommand,
+  lolHistoryCommand,
+  lolScoreboardCommand,
+  lolBettingConfigCommand,
+  lolBetCommand,
+  lolWalletCommand,
 ];

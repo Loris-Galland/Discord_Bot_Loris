@@ -73,11 +73,23 @@ Playlists (YouTube or Spotify) aren't supported yet — only single tracks and s
 5. Every 5 minutes, the bot checks each linked account for a new match and, if one finished, auto-posts a result embed to every server's configured channel the player is a member of. The very first check after linking only records a baseline — it won't announce old history.
 6. Daily (22:00), weekly (Monday 22:00) and monthly (1st of the month, 22:00 — all the bot process's local time) recap embeds are posted to each configured channel: gains/losses in ranked LP over that period, split by queue, with the most and least performant players. LP is tracked as one continuous score across tier/division boundaries, so promotions and demotions don't throw off the numbers. Players with no ranked games in the period are left out. Edit `RECAP_HOUR` in `lolDailyRecap.service.ts` / `lolWeeklyRecap.service.ts` / `lolMonthlyRecap.service.ts` to change the times.
 7. An admin sets up a live panel: `/lol-live-panel channel:#lol-live`. The bot pins a message there and edits it in place every 5 minutes with who's currently in a game (champion, queue, rank, time elapsed), using Riot's Spectator API — fully automatic after the one-time setup.
-8. `/lol-unlink` removes your link.
+8. `/lol-history [player] [count]` shows a player's recent match results (win/loss, champion, KDA, queue, how long ago), up to 15 matches.
+9. `/lol-scoreboard [player]` shows the full 10-player scoreboard (both teams, champion/KDA/CS/damage for everyone) for a linked account's most recent match, not just the tracked player.
+10. `/lol-unlink` removes your link.
 
 Supported regions: EU West, EU Nordic & East, North America, Korea, Brazil (see `src/features/stats/lol.types.ts` to add more).
 
 Champion/item/summoner spell/rune icons come from Data Dragon; rank emblems come from Community Dragon and are uploaded once as Discord "application emojis" (bot-wide, shown inline next to rank text) — see `src/features/stats/lolRankEmoji.ts`. The match summary embed's items/spells/runes loadout is rendered as a composite image via `@napi-rs/canvas` (`lolLoadoutImage.ts`), since a Discord embed can only carry one image.
+
+### Betting on friends' games
+
+1. An admin configures the betting channel: `/lol-betting-config channel:#lol-bets`.
+2. When a linked player starts a game, the bot detects it (via the Spectator API, same 5-minute cycle as everything else) and posts a bet-opening message in that channel automatically — no command needed to open a bet.
+3. Anyone (except the players actually in that game) can bet with `/lol-bet player:@someone side:<his team|enemy team> amount:<jetons>`, once per game, before the 5-minute window closes.
+4. Everyone starts with 1000 🪙 (jetons), checked via `/lol-wallet [player]`.
+5. When the tracked player's match ends, bets resolve automatically: winners get their stake back at a flat x1.9, losers lose their stake. A result message is posted to the betting channel.
+
+The odds are currently a flat x1.9 on both sides — there's no win-probability model yet (that'd be a separate future improvement, e.g. based on average team rank).
 
 ## Moving from your personal server to your friends' server
 

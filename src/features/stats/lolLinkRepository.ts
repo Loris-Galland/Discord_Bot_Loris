@@ -28,6 +28,7 @@ export interface LolLink {
   regional: RegionalRouting;
   lastSeenMatchId?: string;
   queueProgress?: Record<string, QueueProgress>;
+  lastKnownGameId?: number;
 }
 
 type LolLinkStore = Record<string, LolLink>;
@@ -78,6 +79,23 @@ export const lolLinkRepository = {
       return;
     }
     store = { ...store, [discordUserId]: { ...existing, lastSeenMatchId: matchId } };
+    writeStore(store);
+  },
+
+  // Tracks the game the player was last seen in, so a new game start can be detected
+  // (used to open bets). undefined clears it (the player left/finished their game).
+  setLastKnownGameId(discordUserId: string, gameId: number | undefined): void {
+    const existing = store[discordUserId];
+    if (!existing) {
+      return;
+    }
+    const next = { ...existing };
+    if (gameId === undefined) {
+      delete next.lastKnownGameId;
+    } else {
+      next.lastKnownGameId = gameId;
+    }
+    store = { ...store, [discordUserId]: next };
     writeStore(store);
   },
 

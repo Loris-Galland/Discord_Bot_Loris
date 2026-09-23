@@ -47,6 +47,9 @@ export interface RunePerkStyleDto {
 
 export interface MatchParticipantDto {
   puuid: string;
+  riotIdGameName: string;
+  riotIdTagline: string;
+  teamId: number;
   championName: string;
   win: boolean;
   kills: number;
@@ -54,6 +57,7 @@ export interface MatchParticipantDto {
   assists: number;
   totalMinionsKilled: number;
   neutralMinionsKilled: number;
+  totalDamageDealtToChampions: number;
   champLevel: number;
   summoner1Id: number;
   summoner2Id: number;
@@ -77,6 +81,8 @@ export interface MatchDto {
     matchId: string;
   };
   info: {
+    gameCreation: number;
+    gameEndTimestamp?: number;
     gameDuration: number;
     gameMode: string;
     queueId: number;

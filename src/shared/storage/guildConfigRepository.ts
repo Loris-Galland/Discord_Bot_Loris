@@ -10,6 +10,7 @@ interface GuildConfig {
   statsChannelId?: string;
   livePanelChannelId?: string;
   livePanelMessageId?: string;
+  bettingChannelId?: string;
 }
 
 type GuildConfigStore = Record<string, GuildConfig>;
@@ -75,6 +76,18 @@ export const guildConfigRepository = {
         livePanelChannelId: channelId,
         livePanelMessageId: messageId,
       },
+    };
+    writeStore(store);
+  },
+
+  getBettingChannelId(guildId: string): string | undefined {
+    return store[guildId]?.bettingChannelId;
+  },
+
+  setBettingChannelId(guildId: string, channelId: string): void {
+    store = {
+      ...store,
+      [guildId]: { ...store[guildId], bettingChannelId: channelId },
     };
     writeStore(store);
   },
