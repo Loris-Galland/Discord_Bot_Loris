@@ -6,6 +6,7 @@ interface AppConfig {
   discordGuildId: string | undefined;
   spotifyClientId: string | undefined;
   spotifyClientSecret: string | undefined;
+  riotApiKey: string | undefined;
 }
 
 function readRequiredEnv(key: string): string {
@@ -23,4 +24,6 @@ export const config: AppConfig = {
   // Optional: only required for resolving Spotify links in the music feature.
   spotifyClientId: process.env.SPOTIFY_CLIENT_ID || undefined,
   spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET || undefined,
+  // Optional: only required for the LoL stats feature.
+  riotApiKey: process.env.RIOT_API_KEY || undefined,
 };

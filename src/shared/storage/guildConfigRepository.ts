@@ -7,6 +7,7 @@ const storageFilePath = path.join(process.cwd(), "data", "guild-config.json");
 
 interface GuildConfig {
   livechatChannelId?: string;
+  statsChannelId?: string;
 }
 
 type GuildConfigStore = Record<string, GuildConfig>;
@@ -40,6 +41,18 @@ export const guildConfigRepository = {
     store = {
       ...store,
       [guildId]: { ...store[guildId], livechatChannelId: channelId },
+    };
+    writeStore(store);
+  },
+
+  getStatsChannelId(guildId: string): string | undefined {
+    return store[guildId]?.statsChannelId;
+  },
+
+  setStatsChannelId(guildId: string, channelId: string): void {
+    store = {
+      ...store,
+      [guildId]: { ...store[guildId], statsChannelId: channelId },
     };
     writeStore(store);
   },
