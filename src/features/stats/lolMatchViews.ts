@@ -15,6 +15,7 @@ import { QUEUE_ID_LABELS } from "./lolRank";
 export const BLUE_TEAM_ID = 100;
 export const RED_TEAM_ID = 200;
 const ARENA_QUEUE_ID = 1700;
+const NAME_MAX_LENGTH = 11;
 
 export const MATCH_BUTTON_PREFIX = "lolm";
 export type MatchView = "scoreboard" | "details" | "gold" | "damage" | "items" | "events";
@@ -68,6 +69,13 @@ export function formatThousands(value: number): string {
 
 function fullName(participant: MatchParticipantDto): string {
   return escapeMarkdown(participant.riotIdGameName || participant.championName);
+}
+
+// Same budget as Zoé: 5 icons + ~10 characters is what fits in a third of an embed.
+function shortName(participant: MatchParticipantDto): string {
+  const name = participant.riotIdGameName || participant.championName;
+  const cut = name.length > NAME_MAX_LENGTH ? `${name.slice(0, NAME_MAX_LENGTH - 1).trimEnd()}…` : name;
+  return escapeMarkdown(cut);
 }
 
 function kda(participant: MatchParticipantDto): string {
@@ -134,28 +142,40 @@ export async function buildScoreboardView(match: MatchDto, trackedIndex: number)
     return { embeds: [embed] };
   }
 
-  // One full-width field per team, stacked. Bots can't widen an embed, and three inline
-  // columns squeezed side by side forced names to be cut and pushed the red side's icons
-  // out of line. Icons come first on every line so they stay in aligned columns, and
-  // names can be shown in full.
-  for (const teamId of [BLUE_TEAM_ID, RED_TEAM_ID]) {
-    const players = teamOf(match, teamId);
-    const emojis = await emojisFor(players);
-    const lines = players.map((participant, index) => {
-      const emoji = emojis[index];
-      const icons = emoji ? `${championOrName(emoji, participant)}${emoji.spells}${emoji.runes}` : "";
-      const text = `${kda(participant)} · ${fullName(participant)}`;
-      return `${icons} ${participant.puuid === tracked?.puuid ? `**${text}**` : text}`;
-    });
-    if (lines.length > 0) {
-      embed.addFields({ name: teamHeader(match, teamId), value: lines.join("\n") });
+  // Zoé-style: three inline columns (blue | scores | red), one row per lane. Bots can't
+  // widen an embed, so names are cut short to keep every row on one line — a wrapped row
+  // would shift all the rows below it out of line with the score column. Icons come
+  // first on both sides so they stack in straight columns whatever the name length.
+  const blue = teamOf(match, BLUE_TEAM_ID);
+  const red = teamOf(match, RED_TEAM_ID);
+  const [blueEmojis, redEmojis] = await Promise.all([emojisFor(blue), emojisFor(red)]);
+  const isTracked = (participant: MatchParticipantDto | undefined) =>
+    participant !== undefined && participant.puuid === tracked?.puuid;
+  const playerLine = (participant: MatchParticipantDto | undefined, emoji: ParticipantEmojis | undefined) => {
+    if (!participant || !emoji) {
+      return "​";
     }
+    const name = shortName(participant);
+    return `${championOrName(emoji, participant)}${emoji.spells}${emoji.runes} ${isTracked(participant) ? `**${name}**` : name}`;
+  };
+  const scoreOf = (participant: MatchParticipantDto | undefined) =>
+    !participant ? "-" : isTracked(participant) ? `**${kda(participant)}**` : kda(participant);
+
+  const rows = Math.max(blue.length, red.length);
+  const blueLines: string[] = [];
+  const scoreLines: string[] = [];
+  const redLines: string[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    blueLines.push(playerLine(blue[row], blueEmojis[row]));
+    redLines.push(playerLine(red[row], redEmojis[row]));
+    scoreLines.push(`${scoreOf(blue[row])} | ${scoreOf(red[row])}`);
   }
 
-  embed.addFields({
-    name: "Objectifs",
-    value: `${objectivesLine(match, BLUE_TEAM_ID)}\n${objectivesLine(match, RED_TEAM_ID)}`,
-  });
+  embed.addFields(
+    { name: teamHeader(match, BLUE_TEAM_ID), value: blueLines.join("\n"), inline: true },
+    { name: "Score", value: scoreLines.join("\n"), inline: true },
+    { name: teamHeader(match, RED_TEAM_ID), value: redLines.join("\n"), inline: true },
+  );
 
   return { embeds: [embed] };
 }
@@ -164,6 +184,12 @@ export async function buildDetailsView(match: MatchDto, trackedIndex: number): P
   const tracked = match.info.participants[trackedIndex];
   const embed = baseEmbed(match, tracked);
   const minutes = Math.max(match.info.gameDuration / 60, 1);
+
+  // Moved here from the scoreboard, which now only carries the Zoé-style columns.
+  embed.addFields({
+    name: "Objectifs",
+    value: `${objectivesLine(match, BLUE_TEAM_ID)}\n${objectivesLine(match, RED_TEAM_ID)}`,
+  });
 
   for (const teamId of [BLUE_TEAM_ID, RED_TEAM_ID]) {
     const players = teamOf(match, teamId);
