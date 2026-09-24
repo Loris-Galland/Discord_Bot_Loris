@@ -1,7 +1,7 @@
 import { ChannelType, type Client } from "discord.js";
 import { createLogger } from "../../shared/logger/logger";
 import { guildConfigRepository } from "../../shared/storage/guildConfigRepository";
-import { closeExpiredBets, openBetsForNewGames, resolveBetsForMatch } from "./lolBetting.service";
+import { closeExpiredBets, openBetsForNewGames, resolveFinishedBets } from "./lolBetting.service";
 import { maybeRunDailyRecap } from "./lolDailyRecap.service";
 import { buildMatchSummaryEmbed } from "./lolEmbed";
 import { lolLinkRepository, type PeriodStats } from "./lolLinkRepository";
@@ -78,8 +78,6 @@ async function announceMatch(
     return;
   }
 
-  await resolveBetsForMatch(client, matchId, participant);
-
   const rankedEntries = await getRankedEntries(link.platform, link.puuid).catch(() => []);
 
   const queueType = RANKED_QUEUE_TYPE_BY_ID[match.info.queueId];
@@ -87,7 +85,7 @@ async function announceMatch(
     trackRankChange(discordUserId, queueType, rankedEntries);
   }
 
-  const { embed, files } = await buildMatchSummaryEmbed(
+  const summary = await buildMatchSummaryEmbed(
     displayName,
     match,
     participant,
@@ -110,7 +108,7 @@ async function announceMatch(
       continue;
     }
 
-    await channel.send({ embeds: [embed], files });
+    await channel.send(summary);
   }
 }
 
@@ -157,6 +155,7 @@ export function startLolMatchTracker(client: Client): void {
       .then(() => updateLivePanels(client))
       .then(() => openBetsForNewGames(client))
       .then(() => closeExpiredBets(client))
+      .then(() => resolveFinishedBets(client))
       .then(() => maybeRunDailyRecap(client))
       .then(() => maybeRunWeeklyRecap(client))
       .then(() => maybeRunMonthlyRecap(client))

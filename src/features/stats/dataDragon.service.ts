@@ -67,6 +67,17 @@ export async function getChampionNameById(championId: number): Promise<string | 
   return map[championId] ?? null;
 }
 
+// Goes through the numeric id rather than match-v5's championName, which doesn't always
+// match Data Dragon's file names (e.g. "FiddleSticks" vs "Fiddlesticks").
+export async function getChampionIconUrlById(championId: number): Promise<string | null> {
+  const name = await getChampionNameById(championId);
+  return name ? getChampionIconUrl(name) : null;
+}
+
+export async function getAllChampionIds(): Promise<number[]> {
+  return Object.keys(await getChampionMap()).map(Number);
+}
+
 export async function getItemIconUrl(itemId: number): Promise<string | null> {
   if (!itemId) {
     return null;
@@ -102,6 +113,10 @@ async function getSummonerSpellMap(): Promise<Record<number, string>> {
 
   cachedSummonerSpellMap = map;
   return map;
+}
+
+export async function getAllSummonerSpellIds(): Promise<number[]> {
+  return Object.keys(await getSummonerSpellMap()).map(Number);
 }
 
 export async function getSummonerSpellIconUrl(spellId: number): Promise<string | null> {

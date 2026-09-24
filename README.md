@@ -67,27 +67,27 @@ Playlists (YouTube or Spotify) aren't supported yet — only single tracks and s
 ## Using the LoL stats feature
 
 1. Each player links their Riot account: `/lol-link riot-id:Name#Tag region:<your region>`.
-2. `/lol-stats [player:@someone]` looks up the most recent match for a linked account on demand (defaults to yourself) — champion, KDA, CS, KP%, level, duration, ranked standing (with a rank emblem next to it), and a summoner spells/runes/items loadout image.
+2. `/lol-stats [player:@someone]` looks up the most recent match for a linked account on demand (defaults to yourself) — champion, KDA, CS, KP%, level, duration, ranked standing (with a rank emblem next to it), and the summoner spells/runes/items build as inline icons. Buttons under it open the scoreboard, gold graph, damage graph, items and game events.
 3. `/lol-leaderboard` ranks every linked account in the server by their best queue (Solo/Duo or Flex), medals for the top 3.
 4. An admin configures the announce channel: `/lol-config channel:#lol-stats`.
 5. Every 5 minutes, the bot checks each linked account for a new match and, if one finished, auto-posts a result embed to every server's configured channel the player is a member of. The very first check after linking only records a baseline — it won't announce old history.
 6. Daily (22:00), weekly (Monday 22:00) and monthly (1st of the month, 22:00 — all the bot process's local time) recap embeds are posted to each configured channel: gains/losses in ranked LP over that period, split by queue, with the most and least performant players. LP is tracked as one continuous score across tier/division boundaries, so promotions and demotions don't throw off the numbers. Players with no ranked games in the period are left out. Edit `RECAP_HOUR` in `lolDailyRecap.service.ts` / `lolWeeklyRecap.service.ts` / `lolMonthlyRecap.service.ts` to change the times.
 7. An admin sets up a live panel: `/lol-live-panel channel:#lol-live`. The bot pins a message there and edits it in place every 5 minutes with who's currently in a game (champion, queue, rank, time elapsed), using Riot's Spectator API — fully automatic after the one-time setup.
-8. `/lol-history [player] [count]` shows a player's recent match results (win/loss, champion, KDA, queue, how long ago), up to 15 matches.
-9. `/lol-scoreboard [player]` shows the full 10-player scoreboard (both teams, champion/KDA/CS/damage for everyone) for a linked account's most recent match, not just the tracked player.
+8. `/lol-history [player] [count]` shows a player's recent match results as text (win/loss, champion, keystone, KDA, CS, queue, duration, how long ago), up to 15 matches. A menu under it opens any of those games' scoreboard.
+9. `/lol-scoreboard [player]` shows the full 10-player scoreboard as text with inline icons (champion, spells, runes, KDA for both teams, plus team objectives) for a linked account's most recent match. Buttons under it show more details (damage, gold, CS, vision), a gold-difference graph, a damage graph, every player's items and the game's key events (first blood, dragons, barons, towers, multi-kills). Those replies are only visible to whoever clicked, so the channel doesn't get flooded.
 10. `/lol-unlink` removes your link.
 
 Supported regions: EU West, EU Nordic & East, North America, Korea, Brazil (see `src/features/stats/lol.types.ts` to add more).
 
-Champion/item/summoner spell/rune icons come from Data Dragon; rank emblems come from Community Dragon and are uploaded once as Discord "application emojis" (bot-wide, shown inline next to rank text) — see `src/features/stats/lolRankEmoji.ts`. The match summary embed's items/spells/runes loadout is rendered as a composite image via `@napi-rs/canvas` (`lolLoadoutImage.ts`), since a Discord embed can only carry one image.
+Champion/item/summoner spell/rune icons come from Data Dragon; rank emblems come from Community Dragon and are uploaded once as Discord "application emojis" (bot-wide, shown inline next to rank text) — see `src/features/stats/lolRankEmoji.ts`. Champion, summoner spell, rune and item icons are uploaded the same way, as application emojis named by id (`c266`, `s4`, `r8112`, `i3031` — see `lolGameEmoji.ts`): champions and spells in the background on first startup, runes and items the first time a message needs them (a message that can't wait for an upload is sent without that icon, the next one will have it). Only the gold and damage graphs are images (`lolMatchCharts.ts`, `@napi-rs/canvas`).
 
 ### Betting on friends' games
 
 1. An admin configures the betting channel: `/lol-betting-config channel:#lol-bets`.
-2. When a linked player starts a game, the bot detects it (via the Spectator API, same 5-minute cycle as everything else) and posts a bet-opening message in that channel automatically — no command needed to open a bet.
-3. Anyone (except the players actually in that game) can bet with `/lol-bet player:@someone side:<his team|enemy team> amount:<jetons>`, once per game, before the 5-minute window closes.
+2. When a linked player starts a game, the bot detects it (via the Spectator API, same 5-minute cycle as everything else) and posts a bet-opening message in that channel automatically, with both team compositions — no command needed to open a bet. If two linked friends are in the same game, only one bet is opened.
+3. Anyone (except the players actually in that game) can bet by clicking the blue or red team button under that message and typing an amount, or with `/lol-bet player:@someone side:<his team|enemy team> amount:<jetons>` — once per game, before the 5-minute window closes. The message shows the running totals on each side.
 4. Everyone starts with 1000 🪙 (jetons), checked via `/lol-wallet [player]`.
-5. When the tracked player's match ends, bets resolve automatically: winners get their stake back at a flat x1.9, losers lose their stake. A result message is posted to the betting channel.
+5. When the game ends, bets resolve automatically (the bot checks Riot's match history for that exact game on every 5-minute cycle): winners get their stake back at a flat x1.9, losers lose their stake. A result message is posted as a reply to the bet message. Remakes are refunded, and so is any game whose result still can't be found after 6 hours.
 
 The odds are currently a flat x1.9 on both sides — there's no win-probability model yet (that'd be a separate future improvement, e.g. based on average team rank).
 

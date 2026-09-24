@@ -1,8 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { Command } from "../../shared/discord/command.types";
 import { lolBetRepository } from "./lolBetRepository";
+import { placeWager, refreshBetMessage } from "./lolBetting.service";
 import { lolLinkRepository } from "./lolLinkRepository";
-import { lolWalletRepository } from "./lolWalletRepository";
+import { BLUE_TEAM_ID, RED_TEAM_ID } from "./lolMatchViews";
 
 export const lolBetCommand: Command = {
   data: new SlashCommandBuilder()
@@ -43,54 +44,23 @@ export const lolBetCommand: Command = {
     const amount = interaction.options.getInteger("amount", true);
 
     const link = lolLinkRepository.get(target.id);
-    if (!link || link.lastKnownGameId === undefined) {
+    const bet = link ? lolBetRepository.findOpenForPlayer(interaction.guildId, link.puuid) : undefined;
+    const targetTeamId = link ? bet?.participantTeams[link.puuid] : undefined;
+    if (!bet || targetTeamId === undefined) {
       await interaction.reply({
-        content: `${target.username} isn't currently in a tracked game.`,
+        content: `Aucun pari ouvert sur une partie de ${target.username} en ce moment.`,
         ephemeral: true,
       });
       return;
     }
 
-    const bet = lolBetRepository.get(interaction.guildId, link.lastKnownGameId);
-    if (!bet) {
-      await interaction.reply({ content: "No open bet for that game.", ephemeral: true });
-      return;
-    }
-    if (bet.closed || Date.now() >= bet.closesAt) {
-      await interaction.reply({ content: "Betting is closed for this game.", ephemeral: true });
-      return;
-    }
+    const teamId = side === "own" ? targetTeamId : targetTeamId === BLUE_TEAM_ID ? RED_TEAM_ID : BLUE_TEAM_ID;
+    const result = placeWager(bet, interaction.user.id, teamId, amount);
+    await interaction.reply({ content: result.message, ephemeral: true });
 
-    const bettorLink = lolLinkRepository.get(interaction.user.id);
-    if (bettorLink && bet.participantPuuids.includes(bettorLink.puuid)) {
-      await interaction.reply({
-        content: "You can't bet on a game you're playing in.",
-        ephemeral: true,
-      });
-      return;
+    const updated = lolBetRepository.get(interaction.guildId, bet.gameId);
+    if (result.ok && updated) {
+      await refreshBetMessage(interaction.client, updated, "open");
     }
-
-    if (bet.wagers.some((wager) => wager.discordUserId === interaction.user.id)) {
-      await interaction.reply({ content: "You already bet on this game.", ephemeral: true });
-      return;
-    }
-
-    const balance = lolWalletRepository.getBalance(interaction.user.id);
-    if (amount > balance) {
-      await interaction.reply({ content: `You only have ${balance} 🪙.`, ephemeral: true });
-      return;
-    }
-
-    lolWalletRepository.adjustBalance(interaction.user.id, -amount);
-    bet.wagers.push({ discordUserId: interaction.user.id, side, amount });
-    lolBetRepository.set(bet);
-
-    const sideLabel =
-      side === "own" ? `l'équipe de ${target.username}` : `l'équipe adverse à ${target.username}`;
-    const remaining = lolWalletRepository.getBalance(interaction.user.id);
-    await interaction.reply({
-      content: `Pari placé : **${amount} 🪙** sur ${sideLabel}. Solde restant : ${remaining} 🪙.`,
-      ephemeral: true,
-    });
   },
 };

@@ -20,6 +20,13 @@ export function findRegion(platform: string): RegionOption | undefined {
   return LOL_REGIONS.find((region) => region.platform === platform);
 }
 
+// Match ids are "<PLATFORM>_<gameId>" (e.g. "EUW1_7123456789"), so the routing needed to
+// fetch one can be recovered from the id alone — lets button handlers stay stateless.
+export function regionalForMatchId(matchId: string): RegionalRouting | undefined {
+  const platform = matchId.split("_")[0]?.toLowerCase();
+  return platform ? findRegion(platform)?.regional : undefined;
+}
+
 export interface RiotAccountDto {
   puuid: string;
   gameName: string;
@@ -46,18 +53,24 @@ export interface RunePerkStyleDto {
 }
 
 export interface MatchParticipantDto {
+  participantId: number;
   puuid: string;
   riotIdGameName: string;
   riotIdTagline: string;
   teamId: number;
+  championId: number;
   championName: string;
   win: boolean;
+  gameEndedInEarlySurrender?: boolean;
   kills: number;
   deaths: number;
   assists: number;
   totalMinionsKilled: number;
   neutralMinionsKilled: number;
   totalDamageDealtToChampions: number;
+  totalDamageTaken: number;
+  goldEarned: number;
+  visionScore: number;
   champLevel: number;
   summoner1Id: number;
   summoner2Id: number;
@@ -76,6 +89,22 @@ export interface MatchParticipantDto {
   };
 }
 
+export interface TeamObjectiveDto {
+  first: boolean;
+  kills: number;
+}
+
+export interface MatchTeamDto {
+  teamId: number;
+  win: boolean;
+  objectives: Partial<
+    Record<
+      "baron" | "champion" | "dragon" | "horde" | "inhibitor" | "riftHerald" | "tower" | "atakhan",
+      TeamObjectiveDto
+    >
+  >;
+}
+
 export interface MatchDto {
   metadata: {
     matchId: string;
@@ -87,17 +116,52 @@ export interface MatchDto {
     gameMode: string;
     queueId: number;
     participants: MatchParticipantDto[];
+    teams: MatchTeamDto[];
+  };
+}
+
+export interface TimelineParticipantFrameDto {
+  totalGold: number;
+}
+
+// Only the event fields this bot reads; Riot sends many more event types (wards, item
+// purchases, skill level-ups...) which are simply ignored.
+export interface TimelineEventDto {
+  type: string;
+  timestamp: number;
+  killerId?: number;
+  victimId?: number;
+  killerTeamId?: number;
+  teamId?: number;
+  monsterType?: string;
+  monsterSubType?: string;
+  buildingType?: string;
+  killType?: string;
+  multiKillLength?: number;
+}
+
+export interface TimelineFrameDto {
+  timestamp: number;
+  participantFrames: Record<string, TimelineParticipantFrameDto>;
+  events: TimelineEventDto[];
+}
+
+export interface MatchTimelineDto {
+  info: {
+    frames: TimelineFrameDto[];
   };
 }
 
 export interface CurrentGameParticipantDto {
   puuid: string;
+  riotId?: string;
   championId: number;
   teamId: number;
 }
 
 export interface CurrentGameInfoDto {
   gameId: number;
+  platformId: string;
   gameLength: number;
   gameQueueConfigId: number;
   participants: CurrentGameParticipantDto[];

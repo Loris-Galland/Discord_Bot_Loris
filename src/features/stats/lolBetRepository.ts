@@ -5,19 +5,26 @@ const storageFilePath = path.join(process.cwd(), "data", "lol-bets.json");
 
 export interface Wager {
   discordUserId: string;
-  side: "own" | "enemy"; // relative to the tracked player's team
+  teamId: number; // 100 = blue, 200 = red
   amount: number;
 }
 
 export interface OpenBet {
   gameId: number;
+  matchId: string; // "<PLATFORM>_<gameId>", what match-v5 will list the game under once it ends
   guildId: string;
   channelId: string;
   messageId: string;
   trackedDiscordUserId: string;
-  trackedRiotId: string;
+  trackedDisplayName: string;
   trackedTeamId: number;
-  participantPuuids: string[];
+  queueLabel: string;
+  // puuid -> teamId for all 10 players: blocks players from betting on their own game and
+  // lets /lol-bet resolve "his team / the enemy team" for any linked player in the game.
+  participantTeams: Record<string, number>;
+  // Pre-rendered team compositions (champion emojis + names), kept so the bet message
+  // can be re-rendered on every wager without calling the Spectator API again.
+  teamLines: Record<string, string>;
   opensAt: number;
   closesAt: number;
   closed: boolean;
@@ -74,5 +81,12 @@ export const lolBetRepository = {
 
   all(): OpenBet[] {
     return Object.values(store);
+  },
+
+  // The still-open bet (if any) on the game a given player is currently in.
+  findOpenForPlayer(guildId: string, puuid: string): OpenBet | undefined {
+    return Object.values(store).find(
+      (bet) => bet.guildId === guildId && !bet.closed && bet.participantTeams[puuid] !== undefined,
+    );
   },
 };

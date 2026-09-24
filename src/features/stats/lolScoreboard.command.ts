@@ -1,13 +1,12 @@
-import { AttachmentBuilder, Colors, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import type { Command } from "../../shared/discord/command.types";
 import { createLogger } from "../../shared/logger/logger";
 import { lolLinkRepository } from "./lolLinkRepository";
-import { QUEUE_ID_LABELS } from "./lolRank";
-import { buildScoreboardImage } from "./lolScoreboardImage";
-import { getMatch, getRecentMatchIds, RiotApiError } from "./riotApi.service";
+import { renderMatchView } from "./lolMatchButtons.component";
+import { getCachedMatch } from "./lolMatchCache";
+import { getRecentMatchIds, RiotApiError } from "./riotApi.service";
 
 const logger = createLogger("lol-scoreboard-command");
-const SCOREBOARD_ATTACHMENT_NAME = "scoreboard.png";
 
 export const lolScoreboardCommand: Command = {
   data: new SlashCommandBuilder()
@@ -39,26 +38,14 @@ export const lolScoreboardCommand: Command = {
         return;
       }
 
-      const match = await getMatch(link.regional, latestMatchId);
-      const trackedParticipant = match.info.participants.find((entry) => entry.puuid === link.puuid);
-      if (!trackedParticipant) {
+      const match = await getCachedMatch(latestMatchId);
+      const trackedIndex = match.info.participants.findIndex((entry) => entry.puuid === link.puuid);
+      if (trackedIndex === -1) {
         await interaction.editReply("Could not find this player in their most recent match.");
         return;
       }
 
-      const durationMinutes = Math.round(match.info.gameDuration / 60);
-      const queueLabel = QUEUE_ID_LABELS[match.info.queueId] ?? "Partie";
-
-      const imageBuffer = await buildScoreboardImage(match, link.puuid);
-      const attachment = new AttachmentBuilder(imageBuffer, { name: SCOREBOARD_ATTACHMENT_NAME });
-
-      const embed = new EmbedBuilder()
-        .setColor(trackedParticipant.win ? Colors.Green : Colors.Red)
-        .setTitle(`Scoreboard — ${queueLabel} — ${durationMinutes} min`)
-        .setImage(`attachment://${SCOREBOARD_ATTACHMENT_NAME}`)
-        .setTimestamp();
-
-      await interaction.editReply({ embeds: [embed], files: [attachment] });
+      await interaction.editReply(await renderMatchView("scoreboard", latestMatchId, trackedIndex));
     } catch (error) {
       if (error instanceof RiotApiError) {
         await interaction.editReply(error.message);

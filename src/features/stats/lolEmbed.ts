@@ -1,17 +1,14 @@
-import { AttachmentBuilder, Colors, EmbedBuilder } from "discord.js";
-import { createLogger } from "../../shared/logger/logger";
-import { getChampionIconUrl } from "./dataDragon.service";
+import { ActionRowBuilder, ButtonBuilder, Colors, EmbedBuilder } from "discord.js";
+import { getChampionIconUrlById } from "./dataDragon.service";
 import type { LeagueEntryDto, MatchDto, MatchParticipantDto } from "./lol.types";
+import { getParticipantEmojis } from "./lolGameEmoji";
+import { buildMatchButtons, formatDuration } from "./lolMatchViews";
 import { formatRank } from "./lolRank";
-import { buildLoadoutImage } from "./lolLoadoutImage";
 import { buildScoreMessage } from "./scoreMessage";
 
-const logger = createLogger("lol-embed");
-const LOADOUT_ATTACHMENT_NAME = "loadout.png";
-
 export interface MatchSummaryMessage {
-  embed: EmbedBuilder;
-  files: AttachmentBuilder[];
+  embeds: EmbedBuilder[];
+  components: ActionRowBuilder<ButtonBuilder>[];
 }
 
 export async function buildMatchSummaryEmbed(
@@ -21,8 +18,8 @@ export async function buildMatchSummaryEmbed(
   rankedEntries: LeagueEntryDto[],
 ): Promise<MatchSummaryMessage> {
   const cs = participant.totalMinionsKilled + participant.neutralMinionsKilled;
-  const durationMinutes = Math.round(match.info.gameDuration / 60);
   const killParticipation = participant.challenges?.killParticipation;
+  const emojis = await getParticipantEmojis(participant);
   const message = buildScoreMessage(
     {
       win: participant.win,
@@ -41,7 +38,7 @@ export async function buildMatchSummaryEmbed(
     .addFields(
       {
         name: "Champion",
-        value: `${participant.championName} (niv. ${participant.champLevel})`,
+        value: `${emojis.champion} ${participant.championName} (niv. ${participant.champLevel})`,
         inline: true,
       },
       {
@@ -50,12 +47,17 @@ export async function buildMatchSummaryEmbed(
         inline: true,
       },
       { name: "CS", value: `${cs}`, inline: true },
-      { name: "Durée", value: `${durationMinutes} min`, inline: true },
+      { name: "Durée", value: formatDuration(match.info.gameDuration), inline: true },
     )
     .setTimestamp();
 
   if (killParticipation !== undefined) {
     embed.addFields({ name: "KP", value: `${Math.round(killParticipation * 100)}%`, inline: true });
+  }
+
+  const build = `${emojis.spells} ${emojis.runes} ${emojis.items}`.trim();
+  if (build) {
+    embed.addFields({ name: "Build", value: build, inline: false });
   }
 
   const soloQueueEntry = rankedEntries.find((entry) => entry.queueType === "RANKED_SOLO_5x5");
@@ -64,20 +66,22 @@ export async function buildMatchSummaryEmbed(
   }
 
   try {
-    embed.setThumbnail(await getChampionIconUrl(participant.championName));
+    const iconUrl = await getChampionIconUrlById(participant.championId);
+    if (iconUrl) {
+      embed.setThumbnail(iconUrl);
+    }
   } catch {
     // Data Dragon unreachable: ship the embed without the icon rather than fail the whole thing.
   }
 
-  const files: AttachmentBuilder[] = [];
-  try {
-    const loadoutBuffer = await buildLoadoutImage(participant);
-    const attachment = new AttachmentBuilder(loadoutBuffer, { name: LOADOUT_ATTACHMENT_NAME });
-    embed.setImage(`attachment://${LOADOUT_ATTACHMENT_NAME}`);
-    files.push(attachment);
-  } catch (error) {
-    logger.warn("Failed to build loadout image, shipping the embed without it.", error);
-  }
+  const trackedIndex = match.info.participants.indexOf(participant);
+  const buttons = buildMatchButtons(match.metadata.matchId, trackedIndex, [
+    "scoreboard",
+    "gold",
+    "damage",
+    "items",
+    "events",
+  ]);
 
-  return { embed, files };
+  return { embeds: [embed], components: [buttons] };
 }

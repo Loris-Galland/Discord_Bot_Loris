@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import { commands } from "../features";
+import { commands, componentHandlers } from "../features";
+import { initGameEmojis } from "../features/stats/lolGameEmoji";
 import { startLolMatchTracker } from "../features/stats/lolMatchTracker.service";
 import { initRankEmojis } from "../features/stats/lolRankEmoji";
 import { config } from "../shared/config/env";
@@ -14,12 +15,16 @@ export function createBotClient(): Client {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
 
-  registerInteractionRouter(client, commands);
+  registerInteractionRouter(client, commands, componentHandlers);
 
   client.once("ready", (readyClient) => {
     logger.info(`Logged in as ${readyClient.user.tag}.`);
     startLolMatchTracker(readyClient);
-    initRankEmojis(readyClient).catch((error) => logger.error("Failed to initialize rank emojis.", error));
+    // One after the other so both don't hammer Discord's emoji upload endpoint at once.
+    initRankEmojis(readyClient)
+      .catch((error) => logger.error("Failed to initialize rank emojis.", error))
+      .then(() => initGameEmojis(readyClient))
+      .catch((error) => logger.error("Failed to initialize game emojis.", error));
   });
 
   return client;

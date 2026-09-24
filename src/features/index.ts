@@ -1,4 +1,8 @@
 import type { Command } from "../shared/discord/command.types";
+import type { ComponentHandler } from "../shared/discord/component.types";
+import { lolBetButtonsHandler } from "./stats/lolBetButtons.component";
+import { lolHistorySelectHandler } from "./stats/lolHistory.command";
+import { lolMatchButtonsHandler } from "./stats/lolMatchButtons.component";
 import { helpCommand } from "./help/help.command";
 import { livechatConfigCommand } from "./livechat/livechatConfig.command";
 import { livechatReactionCommand } from "./livechat/livechatReaction.command";
@@ -37,4 +41,10 @@ export const commands: Command[] = [
   lolBettingConfigCommand,
   lolBetCommand,
   lolWalletCommand,
+];
+
+export const componentHandlers: ComponentHandler[] = [
+  lolMatchButtonsHandler,
+  lolHistorySelectHandler,
+  lolBetButtonsHandler,
 ];
