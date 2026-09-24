@@ -15,7 +15,6 @@ import { QUEUE_ID_LABELS } from "./lolRank";
 export const BLUE_TEAM_ID = 100;
 export const RED_TEAM_ID = 200;
 const ARENA_QUEUE_ID = 1700;
-const NAME_MAX_LENGTH = 10;
 
 export const MATCH_BUTTON_PREFIX = "lolm";
 export type MatchView = "scoreboard" | "details" | "gold" | "damage" | "items" | "events";
@@ -67,10 +66,8 @@ export function formatThousands(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : `${value}`;
 }
 
-function shortName(participant: MatchParticipantDto): string {
-  const name = participant.riotIdGameName || participant.championName;
-  const truncated = name.length > NAME_MAX_LENGTH ? `${name.slice(0, NAME_MAX_LENGTH - 1)}…` : name;
-  return escapeMarkdown(truncated);
+function fullName(participant: MatchParticipantDto): string {
+  return escapeMarkdown(participant.riotIdGameName || participant.championName);
 }
 
 function kda(participant: MatchParticipantDto): string {
@@ -137,45 +134,28 @@ export async function buildScoreboardView(match: MatchDto, trackedIndex: number)
     return { embeds: [embed] };
   }
 
-  const blue = teamOf(match, BLUE_TEAM_ID);
-  const red = teamOf(match, RED_TEAM_ID);
-  const [blueEmojis, redEmojis] = await Promise.all([emojisFor(blue), emojisFor(red)]);
-  const bold = (participant: MatchParticipantDto | undefined, text: string) =>
-    participant && participant.puuid === tracked?.puuid ? `**${text}**` : text;
-
-  const blueLines: string[] = [];
-  const scoreLines: string[] = [];
-  const redLines: string[] = [];
-  for (let row = 0; row < Math.max(blue.length, red.length); row += 1) {
-    const bluePlayer = blue[row];
-    const redPlayer = red[row];
-    const blueRow = blueEmojis[row];
-    const redRow = redEmojis[row];
-
-    blueLines.push(
-      bluePlayer && blueRow
-        ? `${championOrName(blueRow, bluePlayer)}${blueRow.spells}${blueRow.runes} ${bold(bluePlayer, shortName(bluePlayer))}`
-        : "​",
-    );
-    redLines.push(
-      redPlayer && redRow
-        ? `${bold(redPlayer, shortName(redPlayer))} ${redRow.runes}${redRow.spells}${championOrName(redRow, redPlayer)}`
-        : "​",
-    );
-    const blueScore = bluePlayer ? bold(bluePlayer, kda(bluePlayer)) : "-";
-    const redScore = redPlayer ? bold(redPlayer, kda(redPlayer)) : "-";
-    scoreLines.push(`${blueScore} | ${redScore}`);
+  // One full-width field per team, stacked. Bots can't widen an embed, and three inline
+  // columns squeezed side by side forced names to be cut and pushed the red side's icons
+  // out of line. Icons come first on every line so they stay in aligned columns, and
+  // names can be shown in full.
+  for (const teamId of [BLUE_TEAM_ID, RED_TEAM_ID]) {
+    const players = teamOf(match, teamId);
+    const emojis = await emojisFor(players);
+    const lines = players.map((participant, index) => {
+      const emoji = emojis[index];
+      const icons = emoji ? `${championOrName(emoji, participant)}${emoji.spells}${emoji.runes}` : "";
+      const text = `${kda(participant)} · ${fullName(participant)}`;
+      return `${icons} ${participant.puuid === tracked?.puuid ? `**${text}**` : text}`;
+    });
+    if (lines.length > 0) {
+      embed.addFields({ name: teamHeader(match, teamId), value: lines.join("\n") });
+    }
   }
 
-  embed.addFields(
-    { name: teamHeader(match, BLUE_TEAM_ID), value: blueLines.join("\n"), inline: true },
-    { name: "Score", value: scoreLines.join("\n"), inline: true },
-    { name: teamHeader(match, RED_TEAM_ID), value: redLines.join("\n"), inline: true },
-    {
-      name: "Objectifs",
-      value: `${objectivesLine(match, BLUE_TEAM_ID)}\n${objectivesLine(match, RED_TEAM_ID)}`,
-    },
-  );
+  embed.addFields({
+    name: "Objectifs",
+    value: `${objectivesLine(match, BLUE_TEAM_ID)}\n${objectivesLine(match, RED_TEAM_ID)}`,
+  });
 
   return { embeds: [embed] };
 }
@@ -191,7 +171,7 @@ export async function buildDetailsView(match: MatchDto, trackedIndex: number): P
     const lines = players.map((participant, index) => {
       const cs = participant.totalMinionsKilled + participant.neutralMinionsKilled;
       const kp = participant.challenges?.killParticipation;
-      const name = shortName(participant);
+      const name = fullName(participant);
       const emoji = emojis[index];
       return (
         `${emoji ? championOrName(emoji, participant) : ""} ` +
@@ -224,7 +204,7 @@ export async function buildItemsView(match: MatchDto, trackedIndex: number): Pro
     const emojis = await emojisFor(players);
     const lines = players.map((participant, index) => {
       const emoji = emojis[index];
-      const name = shortName(participant);
+      const name = fullName(participant);
       return `${emoji ? championOrName(emoji, participant) : ""} ${emoji?.items ?? ""} ${
         participant.puuid === tracked?.puuid ? `**${name}**` : name
       }`;
